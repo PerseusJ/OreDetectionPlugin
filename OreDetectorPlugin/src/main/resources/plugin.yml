@@ -1,0 +1,8 @@
+name: OreDetectorPlugin
+version: '${project.version}'
+main: org.plugin.oredetectorplugin.OreDetectorPlugin
+api-version: '1.20'
+commands:
+  oretoggle:
+    description: Toggle ore detection for a specific ore type
+    usage: /<command> [oreType]
