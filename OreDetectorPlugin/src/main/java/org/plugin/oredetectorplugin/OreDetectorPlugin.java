@@ -20,37 +20,89 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.*;
 
+import org.bukkit.Bukkit;
+import org.bukkit.Material;
+import org.bukkit.Particle;
+import org.bukkit.Sound;
+import org.bukkit.block.Block;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandExecutor;
+import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.player.PlayerMoveEvent;
+import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.plugin.java.JavaPlugin;
+
+import java.util.*;
+
 public class OreDetectorPlugin extends JavaPlugin implements Listener {
 
-    private final List<Material> ores = Arrays.asList(
-            // Add other ores as necessary
-            Material.COAL_ORE,
-            Material.IRON_ORE,
-            Material.COPPER_ORE,
-            Material.GOLD_ORE,
-            Material.REDSTONE_ORE,
-            Material.LAPIS_ORE,
-            Material.DIAMOND_ORE,
-            Material.EMERALD_ORE,
-            Material.NETHER_QUARTZ_ORE,
-            Material.NETHER_GOLD_ORE,
-            Material.ANCIENT_DEBRIS,
-            Material.DEEPSLATE_COAL_ORE,
-            Material.DEEPSLATE_IRON_ORE,
-            Material.DEEPSLATE_COPPER_ORE,
-            Material.DEEPSLATE_GOLD_ORE,
-            Material.DEEPSLATE_REDSTONE_ORE,
-            Material.DEEPSLATE_EMERALD_ORE,
-            Material.DEEPSLATE_LAPIS_ORE,
-            Material.DEEPSLATE_DIAMOND_ORE
-    );
+    private List<Material> ores;
 
     private Map<UUID, List<Material>> playerDisabledOres = new HashMap<>();
 
     @Override
     public void onEnable() {
+        initializeOreList();
+
         this.getServer().getPluginManager().registerEvents(this, this);
         this.getCommand("oretoggle").setExecutor(new OreToggleCommand());
+    }
+
+    private String getServerVersion() {
+        String version = Bukkit.getServer().getVersion();
+        if (version.contains("1.16")) {
+            return "1.16";
+        } else if (version.contains("1.17")) {
+            return "1.17";
+        } else if (version.contains("1.18")) {
+            return "1.18";
+        } else if (version.contains("1.19")) {
+            return "1.19";
+        } else if (version.contains("1.20")) {
+            return "1.20";
+        } else {
+            return "UNKNOWN";
+        }
+    }
+
+    private void initializeOreList() {
+        ores = new ArrayList<>();
+
+        // Ores common to all versions from 1.16 to 1.20
+        ores.addAll(Arrays.asList(
+                Material.COAL_ORE,
+                Material.IRON_ORE,
+                Material.GOLD_ORE,
+                Material.REDSTONE_ORE,
+                Material.LAPIS_ORE,
+                Material.DIAMOND_ORE,
+                Material.EMERALD_ORE,
+                Material.NETHER_QUARTZ_ORE
+        ));
+
+        String version = getServerVersion();
+        if (version.equals("1.17") || version.equals("1.18") || version.equals("1.19") || version.equals("1.20")) {
+            // Ores introduced in versions 1.17+
+            ores.addAll(Arrays.asList(
+                    Material.COPPER_ORE,
+                    Material.NETHER_GOLD_ORE,
+                    Material.ANCIENT_DEBRIS,
+                    Material.DEEPSLATE_COAL_ORE,
+                    Material.DEEPSLATE_IRON_ORE,
+                    Material.DEEPSLATE_COPPER_ORE,
+                    Material.DEEPSLATE_GOLD_ORE,
+                    Material.DEEPSLATE_REDSTONE_ORE,
+                    Material.DEEPSLATE_EMERALD_ORE,
+                    Material.DEEPSLATE_LAPIS_ORE,
+                    Material.DEEPSLATE_DIAMOND_ORE
+            ));
+        }
     }
 
     @EventHandler
