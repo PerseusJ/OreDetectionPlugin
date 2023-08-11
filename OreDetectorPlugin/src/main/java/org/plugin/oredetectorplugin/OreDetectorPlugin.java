@@ -1,9 +1,6 @@
 package org.plugin.oredetectorplugin;
 
-import org.bukkit.Bukkit;
-import org.bukkit.Material;
-import org.bukkit.Particle;
-import org.bukkit.Sound;
+import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -11,30 +8,11 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.Action;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
-import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.plugin.java.JavaPlugin;
-
-import java.util.*;
-
-import org.bukkit.Bukkit;
-import org.bukkit.Material;
-import org.bukkit.Particle;
-import org.bukkit.Sound;
-import org.bukkit.block.Block;
-import org.bukkit.command.Command;
-import org.bukkit.command.CommandExecutor;
-import org.bukkit.command.CommandSender;
-import org.bukkit.entity.Player;
-import org.bukkit.event.EventHandler;
-import org.bukkit.event.Listener;
-import org.bukkit.event.inventory.InventoryClickEvent;
-import org.bukkit.event.player.PlayerMoveEvent;
-import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.*;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -43,15 +21,46 @@ import java.util.*;
 public class OreDetectorPlugin extends JavaPlugin implements Listener {
 
     private List<Material> ores;
-
     private Map<UUID, List<Material>> playerDisabledOres = new HashMap<>();
+    private Map<UUID, Map<Material, Integer>> clickCounter = new HashMap<>(); // Track how many times a player clicks an ore
 
     @Override
     public void onEnable() {
+        saveDefaultConfig();
         initializeOreList();
+        registerOreDetectorCompassRecipe();
 
         this.getServer().getPluginManager().registerEvents(this, this);
-        this.getCommand("oretoggle").setExecutor(new OreToggleCommand());
+        this.getCommand("reloadconfig").setExecutor(new ReloadConfigCommand());
+        this.getServer().getPluginManager().registerEvents(this, this);
+    }
+
+    private void registerOreDetectorCompassRecipe() {
+        ItemStack oreDetectorCompass = new ItemStack(Material.COMPASS);
+        ItemMeta meta = oreDetectorCompass.getItemMeta();
+        meta.setDisplayName("Ore Detector");
+        oreDetectorCompass.setItemMeta(meta);
+
+        ShapedRecipe oreDetectorRecipe = new ShapedRecipe(new NamespacedKey(this, "ore_detector_compass"), oreDetectorCompass);
+        oreDetectorRecipe.shape(
+                "D D",
+                " C ",
+                "D D"
+        );
+        oreDetectorRecipe.setIngredient('D', Material.DIAMOND);
+        oreDetectorRecipe.setIngredient('C', Material.COMPASS);
+
+        getServer().addRecipe(oreDetectorRecipe);
+    }
+
+    private boolean isOreDetectorCompass(ItemStack item) {
+        if (item != null && item.getType() == Material.COMPASS) {
+            ItemMeta meta = item.getItemMeta();
+            if (meta != null && "Ore Detector".equals(meta.getDisplayName())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private String getServerVersion() {
@@ -70,6 +79,7 @@ public class OreDetectorPlugin extends JavaPlugin implements Listener {
             return "UNKNOWN";
         }
     }
+
 
     private void initializeOreList() {
         ores = new ArrayList<>();
@@ -107,6 +117,17 @@ public class OreDetectorPlugin extends JavaPlugin implements Listener {
 
     @EventHandler
     public void onPlayerMove(PlayerMoveEvent event) {
+        int distance = getConfig().getInt("ore-detection.distance");
+        int particleCount = getConfig().getInt("ore-detection.particle-count");
+        Particle particleEffect;
+        try {
+            particleEffect = Particle.valueOf(getConfig().getString("ore-detection.particle").toUpperCase());
+        } catch (IllegalArgumentException e) {
+            getLogger().warning("Invalid particle specified in config.yml. Falling back to END_ROD.");
+            particleEffect = Particle.END_ROD;
+        }
+        float volume = (float) getConfig().getDouble("ore-detection.volume");
+
         // Check if the player actually moved in terms of coordinates
         if (event.getFrom().getBlockX() == event.getTo().getBlockX() &&
                 event.getFrom().getBlockY() == event.getTo().getBlockY() &&
@@ -115,16 +136,16 @@ public class OreDetectorPlugin extends JavaPlugin implements Listener {
         }
 
         Player player = event.getPlayer();
-
-        for (int x = -3; x <= 3; x++) {
-            for (int y = -3; y <= 3; y++) {
-                for (int z = -3; z <= 3; z++) {
+        for (int x = -distance; x <= distance; x++) {
+            for (int y = -distance; y <= distance; y++) {
+                for (int z = -distance; z <= distance; z++) {
                     Block block = player.getLocation().add(x, y, z).getBlock();
                     if (ores.contains(block.getType())) {
                         List<Material> disabledOresForPlayer = playerDisabledOres.get(player.getUniqueId());
                         if (disabledOresForPlayer == null || !disabledOresForPlayer.contains(block.getType())) {
-                            player.spawnParticle(Particle.END_ROD, block.getLocation().add(0.5, 0.5, 0.5), 1, 0.5, 0.5, 0.5, 0);
-                            player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.1f, 1f);
+                            player.spawnParticle(particleEffect, block.getLocation().add(0.5, 0.5, 0.5), particleCount, 0.5, 0.5, 0.5, 0);
+                            player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, volume, 1f);
+                            getLogger().info("Player moved near ore. Spawning particle: " + particleEffect.name() + " with volume: " + volume);
                         }
                     }
                 }
@@ -132,6 +153,19 @@ public class OreDetectorPlugin extends JavaPlugin implements Listener {
         }
     }
 
+
+    @EventHandler
+    public void onPlayerInteract(PlayerInteractEvent event) {
+        Player player = event.getPlayer();
+        ItemStack itemInHand = player.getInventory().getItemInMainHand();
+
+        if (itemInHand.getType() == Material.COMPASS && itemInHand.hasItemMeta() && itemInHand.getItemMeta().hasDisplayName() && itemInHand.getItemMeta().getDisplayName().equals("Ore Detector")) {
+            if (event.getAction() == Action.RIGHT_CLICK_AIR || event.getAction() == Action.RIGHT_CLICK_BLOCK) {
+                openOreToggleGUI(player);
+                event.setCancelled(true);
+            }
+        }
+    }
 
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
@@ -147,23 +181,29 @@ public class OreDetectorPlugin extends JavaPlugin implements Listener {
                 Material clickedOre = clickedItem.getType();
                 List<Material> disabledOresForPlayer = playerDisabledOres.getOrDefault(player.getUniqueId(), new ArrayList<>());
 
-                if (disabledOresForPlayer.contains(clickedOre)) {
-                    disabledOresForPlayer.remove(clickedOre);
-                    // Removed the sendMessage line
+                // Handle the click count
+                Map<Material, Integer> playerClicks = clickCounter.getOrDefault(player.getUniqueId(), new HashMap<>());
+                int currentClicks = playerClicks.getOrDefault(clickedOre, 0) + 1;
+
+                if (currentClicks == 2) {
+                    if (disabledOresForPlayer.contains(clickedOre)) {
+                        disabledOresForPlayer.remove(clickedOre);
+                    } else {
+                        disabledOresForPlayer.add(clickedOre);
+                    }
+                    playerDisabledOres.put(player.getUniqueId(), disabledOresForPlayer);
+                    playerClicks.put(clickedOre, 0); // Reset the click counter
                 } else {
-                    disabledOresForPlayer.add(clickedOre);
-                    // Removed the sendMessage line
+                    playerClicks.put(clickedOre, currentClicks);
                 }
 
-                playerDisabledOres.put(player.getUniqueId(), disabledOresForPlayer);
+                clickCounter.put(player.getUniqueId(), playerClicks);
                 openOreToggleGUI(player);
             }
         }
     }
 
-
-    public class OreToggleCommand implements CommandExecutor {
-
+    public class ReloadConfigCommand implements CommandExecutor {
         @Override
         public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
             if (!(sender instanceof Player)) {
@@ -171,33 +211,38 @@ public class OreDetectorPlugin extends JavaPlugin implements Listener {
                 return true;
             }
 
-            Player player = (Player) sender;
-            openOreToggleGUI(player);
-
+            reloadConfig();
+            sender.sendMessage("Configuration reloaded!");
             return true;
         }
     }
 
     private void openOreToggleGUI(Player player) {
-        int size = 27;  // A small inventory size, can be adjusted
+        int size = 54;  // Large chest size
         Inventory gui = Bukkit.createInventory(player, size, "Toggle Ore Detection");
 
         List<Material> disabledOresForPlayer = playerDisabledOres.getOrDefault(player.getUniqueId(), new ArrayList<>());
 
+        int slotIndex = 0;
         for (Material ore : ores) {
+            if (slotIndex >= size) break; // Ensure we don't exceed the GUI size
+
             ItemStack item = new ItemStack(ore);
             ItemMeta meta = item.getItemMeta();
 
             if (disabledOresForPlayer.contains(ore)) {
-                meta.setLore(Arrays.asList("Detection: Disabled"));
+                meta.setDisplayName(ChatColor.RED + ore.name().replace("_", " ").toLowerCase());
             } else {
-                meta.setLore(Arrays.asList("Detection: Enabled"));
+                meta.setDisplayName(ChatColor.GREEN + ore.name().replace("_", " ").toLowerCase());
             }
 
             item.setItemMeta(meta);
-            gui.addItem(item);
+            gui.setItem(slotIndex, item);
+
+            slotIndex += 2; // Increment by 2 to leave space between each ore
         }
 
         player.openInventory(gui);
     }
+
 }
