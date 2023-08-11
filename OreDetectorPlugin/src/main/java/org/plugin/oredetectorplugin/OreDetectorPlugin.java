@@ -39,7 +39,6 @@ public class OreDetectorPlugin extends JavaPlugin implements Listener {
 
         this.getServer().getPluginManager().registerEvents(this, this);
         this.getCommand("reloadconfig").setExecutor(new ReloadConfigCommand());
-        this.getServer().getPluginManager().registerEvents(this, this);
     }
 
     private void registerOreDetectorCompassRecipe() {
@@ -190,8 +189,29 @@ public class OreDetectorPlugin extends JavaPlugin implements Listener {
 
     @EventHandler
     public void onPlayerInteract(PlayerInteractEvent event) {
+        Bukkit.getLogger().info("onPlayerInteract triggered!");
         Player player = event.getPlayer();
         ItemStack itemInHand = player.getInventory().getItemInMainHand();
+
+            if (itemInHand.getType() != Material.COMPASS) {
+                Bukkit.getLogger().info("Item in hand is not a COMPASS.");
+                return;
+            }
+
+            if (!itemInHand.hasItemMeta()) {
+                Bukkit.getLogger().info("Item in hand does not have item meta.");
+                return;
+            }
+
+            if (!itemInHand.getItemMeta().hasDisplayName()) {
+                Bukkit.getLogger().info("Item in hand does not have a display name.");
+                return;
+            }
+
+            if (!itemInHand.getItemMeta().getDisplayName().equals("Ore Detector")) {
+                Bukkit.getLogger().info("Item in hand display name is not 'Ore Detector'. It is: " + itemInHand.getItemMeta().getDisplayName());
+                return;
+            }
 
         if (itemInHand.getType() == Material.COMPASS && itemInHand.hasItemMeta() && itemInHand.getItemMeta().hasDisplayName() && itemInHand.getItemMeta().getDisplayName().equals("Ore Detector")) {
             if (event.getAction() == Action.RIGHT_CLICK_AIR || event.getAction() == Action.RIGHT_CLICK_BLOCK) {
@@ -323,4 +343,4 @@ public class OreDetectorPlugin extends JavaPlugin implements Listener {
 
         player.openInventory(gui);
     }
-    }
+}
