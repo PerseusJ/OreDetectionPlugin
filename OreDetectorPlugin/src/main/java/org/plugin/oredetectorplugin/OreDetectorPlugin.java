@@ -11,6 +11,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.inventory.*;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -143,8 +144,8 @@ public class OreDetectorPlugin extends JavaPlugin implements Listener {
 
         Player player = event.getPlayer();
 
-        boolean particlesEnabled = playerParticlesEnabled.getOrDefault(player.getUniqueId(), true);
-        boolean soundEnabled = playerSoundsEnabled.getOrDefault(player.getUniqueId(), true);
+        boolean particlesEnabled = playerParticlesEnabled.get(player.getUniqueId());
+        boolean soundEnabled = playerSoundsEnabled.get(player.getUniqueId());
 
         for (int x = -distance; x <= distance; x++) {
             for (int y = -distance; y <= distance; y++) {
@@ -169,6 +170,22 @@ public class OreDetectorPlugin extends JavaPlugin implements Listener {
         }
     }
 
+    @EventHandler
+    public void onPlayerJoin(PlayerJoinEvent event) {
+        UUID playerId = event.getPlayer().getUniqueId();
+
+        if (!playerDisabledOres.containsKey(playerId)) {
+            playerDisabledOres.put(playerId, new ArrayList<>(ores));
+        }
+
+        if (!playerParticlesEnabled.containsKey(playerId)) {
+            playerParticlesEnabled.put(playerId, false);
+        }
+
+        if (!playerSoundsEnabled.containsKey(playerId)) {
+            playerSoundsEnabled.put(playerId, false);
+        }
+    }
 
 
     @EventHandler
@@ -291,13 +308,13 @@ public class OreDetectorPlugin extends JavaPlugin implements Listener {
 
         ItemStack particleToggleItem = new ItemStack(Material.REDSTONE);
         ItemMeta particleToggleMeta = particleToggleItem.getItemMeta();
-        boolean particlesEnabled = playerParticlesEnabled.getOrDefault(player.getUniqueId(), true);
+        boolean particlesEnabled = playerParticlesEnabled.get(player.getUniqueId());
         particleToggleMeta.setDisplayName(particlesEnabled ? ChatColor.GREEN + "Particles: Enabled" : ChatColor.RED + "Particles: Disabled");
         particleToggleItem.setItemMeta(particleToggleMeta);
 
         ItemStack soundToggleItem = new ItemStack(Material.NOTE_BLOCK);
         ItemMeta soundToggleMeta = soundToggleItem.getItemMeta();
-        boolean soundEnabled = playerSoundsEnabled.getOrDefault(player.getUniqueId(), true);
+        boolean soundEnabled = playerSoundsEnabled.get(player.getUniqueId());
         soundToggleMeta.setDisplayName(soundEnabled ? ChatColor.GREEN + "Sound: Enabled" : ChatColor.RED + "Sound: Disabled");
         soundToggleItem.setItemMeta(soundToggleMeta);
 
