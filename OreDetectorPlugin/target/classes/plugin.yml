@@ -1,6 +1,6 @@
 name: OreDetectorPlugin
 main: org.plugin.oredetectorplugin.OreDetectorPlugin
-version: 1.3
+version: 1.4
 author: YourName
 commands:
   reloadconfig:
