@@ -1,5 +1,5 @@
 ore-detection:
-  distance: 5
+  distance: 10
   particle: END_ROD
   particle-count: 5
   volume: 0.1

@@ -16,7 +16,6 @@ import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.inventory.*;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.ChatColor;
 
 import java.util.*;
 
@@ -29,7 +28,7 @@ public class OreDetectorPlugin extends JavaPlugin implements Listener {
     private Map<UUID, Boolean> playerSoundsEnabled = new HashMap<>();
     private Map<UUID, Integer> particleClickCounter = new HashMap<>();
     private Map<UUID, Integer> soundClickCounter = new HashMap<>();
-
+    private Object maxVolume;
 
     @Override
     public void onEnable() {
@@ -214,7 +213,7 @@ public class OreDetectorPlugin extends JavaPlugin implements Listener {
             if (event.getCurrentItem().getType() == Material.REDSTONE) {
                 int currentClicks = particleClickCounter.getOrDefault(player.getUniqueId(), 0) + 1;
 
-                if (currentClicks == 2) {
+                if (currentClicks == 1) {
                     boolean currentStatus = playerParticlesEnabled.getOrDefault(player.getUniqueId(), true);
                     playerParticlesEnabled.put(player.getUniqueId(), !currentStatus);
                     particleClickCounter.put(player.getUniqueId(), 0);  // Reset click counter
@@ -229,7 +228,7 @@ public class OreDetectorPlugin extends JavaPlugin implements Listener {
             else if (event.getCurrentItem().getType() == Material.NOTE_BLOCK) {
                 int currentClicks = soundClickCounter.getOrDefault(player.getUniqueId(), 0) + 1;
 
-                if (currentClicks == 2) {
+                if (currentClicks == 1) {
                     boolean currentStatus = playerSoundsEnabled.getOrDefault(player.getUniqueId(), true);
                     playerSoundsEnabled.put(player.getUniqueId(), !currentStatus);
                     soundClickCounter.put(player.getUniqueId(), 0);  // Reset click counter
@@ -265,6 +264,7 @@ public class OreDetectorPlugin extends JavaPlugin implements Listener {
             }
         }
     }
+
 
     public class ReloadConfigCommand implements CommandExecutor {
         @Override
@@ -307,13 +307,13 @@ public class OreDetectorPlugin extends JavaPlugin implements Listener {
 
         ItemStack particleToggleItem = new ItemStack(Material.REDSTONE);
         ItemMeta particleToggleMeta = particleToggleItem.getItemMeta();
-        boolean particlesEnabled = playerParticlesEnabled.get(player.getUniqueId());
+        boolean particlesEnabled = playerParticlesEnabled.getOrDefault(player.getUniqueId(), true);
         particleToggleMeta.setDisplayName(particlesEnabled ? ChatColor.GREEN + "Particles: Enabled" : ChatColor.RED + "Particles: Disabled");
         particleToggleItem.setItemMeta(particleToggleMeta);
 
         ItemStack soundToggleItem = new ItemStack(Material.NOTE_BLOCK);
         ItemMeta soundToggleMeta = soundToggleItem.getItemMeta();
-        boolean soundEnabled = playerSoundsEnabled.get(player.getUniqueId());
+        boolean soundEnabled = playerSoundsEnabled.getOrDefault(player.getUniqueId(), true);
         soundToggleMeta.setDisplayName(soundEnabled ? ChatColor.GREEN + "Sound: Enabled" : ChatColor.RED + "Sound: Disabled");
         soundToggleItem.setItemMeta(soundToggleMeta);
 
