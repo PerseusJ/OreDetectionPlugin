@@ -15,6 +15,7 @@ import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.inventory.*;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.ChatColor;
 
 import java.util.*;
 
@@ -23,6 +24,11 @@ public class OreDetectorPlugin extends JavaPlugin implements Listener {
     private List<Material> ores;
     private Map<UUID, List<Material>> playerDisabledOres = new HashMap<>();
     private Map<UUID, Map<Material, Integer>> clickCounter = new HashMap<>(); // Track how many times a player clicks an ore
+    private Map<UUID, Boolean> playerParticlesEnabled = new HashMap<>();
+    private Map<UUID, Boolean> playerSoundsEnabled = new HashMap<>();
+    private Map<UUID, Integer> particleClickCounter = new HashMap<>();
+    private Map<UUID, Integer> soundClickCounter = new HashMap<>();
+
 
     @Override
     public void onEnable() {
@@ -126,7 +132,7 @@ public class OreDetectorPlugin extends JavaPlugin implements Listener {
             getLogger().warning("Invalid particle specified in config.yml. Falling back to END_ROD.");
             particleEffect = Particle.END_ROD;
         }
-        float volume = (float) getConfig().getDouble("ore-detection.volume");
+        float maxVolume = (float) getConfig().getDouble("ore-detection.volume");
 
         // Check if the player actually moved in terms of coordinates
         if (event.getFrom().getBlockX() == event.getTo().getBlockX() &&
@@ -136,6 +142,10 @@ public class OreDetectorPlugin extends JavaPlugin implements Listener {
         }
 
         Player player = event.getPlayer();
+
+        boolean particlesEnabled = playerParticlesEnabled.getOrDefault(player.getUniqueId(), true);
+        boolean soundEnabled = playerSoundsEnabled.getOrDefault(player.getUniqueId(), true);
+
         for (int x = -distance; x <= distance; x++) {
             for (int y = -distance; y <= distance; y++) {
                 for (int z = -distance; z <= distance; z++) {
@@ -143,15 +153,22 @@ public class OreDetectorPlugin extends JavaPlugin implements Listener {
                     if (ores.contains(block.getType())) {
                         List<Material> disabledOresForPlayer = playerDisabledOres.get(player.getUniqueId());
                         if (disabledOresForPlayer == null || !disabledOresForPlayer.contains(block.getType())) {
-                            player.spawnParticle(particleEffect, block.getLocation().add(0.5, 0.5, 0.5), particleCount, 0.5, 0.5, 0.5, 0);
-                            player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, volume, 1f);
-                            getLogger().info("Player moved near ore. Spawning particle: " + particleEffect.name() + " with volume: " + volume);
+                            double blockDistance = player.getLocation().distance(block.getLocation());
+                            float scaledVolume = (float) (maxVolume * (1 - (blockDistance / (2 * distance))));
+
+                            if (particlesEnabled) {
+                                player.spawnParticle(particleEffect, block.getLocation().add(0.5, 0.5, 0.5), particleCount, 0.5, 0.5, 0.5, 0);
+                            }
+                            if (soundEnabled) {
+                                player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, scaledVolume, 1f);
+                            }
                         }
                     }
                 }
             }
         }
     }
+
 
 
     @EventHandler
@@ -177,11 +194,41 @@ public class OreDetectorPlugin extends JavaPlugin implements Listener {
             Player player = (Player) event.getWhoClicked();
             ItemStack clickedItem = event.getCurrentItem();
 
+            // Handling particles
+            if (event.getCurrentItem().getType() == Material.REDSTONE) {
+                int currentClicks = particleClickCounter.getOrDefault(player.getUniqueId(), 0) + 1;
+
+                if (currentClicks == 2) {
+                    boolean currentStatus = playerParticlesEnabled.getOrDefault(player.getUniqueId(), true);
+                    playerParticlesEnabled.put(player.getUniqueId(), !currentStatus);
+                    particleClickCounter.put(player.getUniqueId(), 0);  // Reset click counter
+                } else {
+                    particleClickCounter.put(player.getUniqueId(), currentClicks);
+                }
+
+                openOreToggleGUI(player); // Refresh the GUI
+            }
+
+            // Handling sounds
+            else if (event.getCurrentItem().getType() == Material.NOTE_BLOCK) {
+                int currentClicks = soundClickCounter.getOrDefault(player.getUniqueId(), 0) + 1;
+
+                if (currentClicks == 2) {
+                    boolean currentStatus = playerSoundsEnabled.getOrDefault(player.getUniqueId(), true);
+                    playerSoundsEnabled.put(player.getUniqueId(), !currentStatus);
+                    soundClickCounter.put(player.getUniqueId(), 0);  // Reset click counter
+                } else {
+                    soundClickCounter.put(player.getUniqueId(), currentClicks);
+                }
+
+                openOreToggleGUI(player); // Refresh the GUI
+            }
+
             if (clickedItem != null && ores.contains(clickedItem.getType())) {
                 Material clickedOre = clickedItem.getType();
                 List<Material> disabledOresForPlayer = playerDisabledOres.getOrDefault(player.getUniqueId(), new ArrayList<>());
 
-                // Handle the click count
+                // Handle the click count for ores
                 Map<Material, Integer> playerClicks = clickCounter.getOrDefault(player.getUniqueId(), new HashMap<>());
                 int currentClicks = playerClicks.getOrDefault(clickedOre, 0) + 1;
 
@@ -192,7 +239,7 @@ public class OreDetectorPlugin extends JavaPlugin implements Listener {
                         disabledOresForPlayer.add(clickedOre);
                     }
                     playerDisabledOres.put(player.getUniqueId(), disabledOresForPlayer);
-                    playerClicks.put(clickedOre, 0); // Reset the click counter
+                    playerClicks.put(clickedOre, 0); // Reset the click counter for ores
                 } else {
                     playerClicks.put(clickedOre, currentClicks);
                 }
@@ -242,7 +289,21 @@ public class OreDetectorPlugin extends JavaPlugin implements Listener {
             slotIndex += 2; // Increment by 2 to leave space between each ore
         }
 
+        ItemStack particleToggleItem = new ItemStack(Material.REDSTONE);
+        ItemMeta particleToggleMeta = particleToggleItem.getItemMeta();
+        boolean particlesEnabled = playerParticlesEnabled.getOrDefault(player.getUniqueId(), true);
+        particleToggleMeta.setDisplayName(particlesEnabled ? ChatColor.GREEN + "Particles: Enabled" : ChatColor.RED + "Particles: Disabled");
+        particleToggleItem.setItemMeta(particleToggleMeta);
+
+        ItemStack soundToggleItem = new ItemStack(Material.NOTE_BLOCK);
+        ItemMeta soundToggleMeta = soundToggleItem.getItemMeta();
+        boolean soundEnabled = playerSoundsEnabled.getOrDefault(player.getUniqueId(), true);
+        soundToggleMeta.setDisplayName(soundEnabled ? ChatColor.GREEN + "Sound: Enabled" : ChatColor.RED + "Sound: Disabled");
+        soundToggleItem.setItemMeta(soundToggleMeta);
+
+        gui.setItem(48, particleToggleItem);
+        gui.setItem(50, soundToggleItem);
+
         player.openInventory(gui);
     }
-
-}
+    }
