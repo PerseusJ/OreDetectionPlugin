@@ -1,5 +1,7 @@
 package org.plugin.oredetectorplugin;
 
+import net.md_5.bungee.api.ChatMessageType;
+import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.command.Command;
@@ -12,7 +14,6 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
-import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.inventory.*;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -28,7 +29,7 @@ public class OreDetectorPlugin extends JavaPlugin implements Listener {
     private Map<UUID, Boolean> playerSoundsEnabled = new HashMap<>();
     private Map<UUID, Integer> particleClickCounter = new HashMap<>();
     private Map<UUID, Integer> soundClickCounter = new HashMap<>();
-    private Object maxVolume;
+
 
     @Override
     public void onEnable() {
@@ -36,9 +37,32 @@ public class OreDetectorPlugin extends JavaPlugin implements Listener {
         initializeOreList();
         registerOreDetectorCompassRecipe();
 
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            if (!playerDisabledOres.containsKey(player.getUniqueId())) {
+                playerDisabledOres.put(player.getUniqueId(), new ArrayList<>(ores));
+            }
+            if (!playerParticlesEnabled.containsKey(player.getUniqueId())) {
+                playerParticlesEnabled.put(player.getUniqueId(), false);
+            }
+            if (!playerSoundsEnabled.containsKey(player.getUniqueId())) {
+                playerSoundsEnabled.put(player.getUniqueId(), false);
+            }
+        }
+
         this.getServer().getPluginManager().registerEvents(this, this);
         this.getCommand("reloadconfig").setExecutor(new ReloadConfigCommand());
+
+        // Setup repeating task for sound effect
+        this.getServer().getScheduler().scheduleSyncRepeatingTask(this, new Runnable() {
+            @Override
+            public void run() {
+                for (Player player : Bukkit.getOnlinePlayers()) {
+                    checkForOresNearby(player);
+                }
+            }
+        }, 0L, 20L); // Check every 1 second. Change 20L to 40L for 2 seconds.
     }
+
 
     private void registerOreDetectorCompassRecipe() {
         ItemStack oreDetectorCompass = new ItemStack(Material.COMPASS);
@@ -120,30 +144,16 @@ public class OreDetectorPlugin extends JavaPlugin implements Listener {
         }
     }
 
-    @EventHandler
-    public void onPlayerMove(PlayerMoveEvent event) {
+    public void checkForOresNearby(Player player) {
         int distance = getConfig().getInt("ore-detection.distance");
         int particleCount = getConfig().getInt("ore-detection.particle-count");
-        Particle particleEffect;
-        try {
-            particleEffect = Particle.valueOf(getConfig().getString("ore-detection.particle").toUpperCase());
-        } catch (IllegalArgumentException e) {
-            getLogger().warning("Invalid particle specified in config.yml. Falling back to END_ROD.");
-            particleEffect = Particle.END_ROD;
-        }
         float maxVolume = (float) getConfig().getDouble("ore-detection.volume");
-
-        // Check if the player actually moved in terms of coordinates
-        if (event.getFrom().getBlockX() == event.getTo().getBlockX() &&
-                event.getFrom().getBlockY() == event.getTo().getBlockY() &&
-                event.getFrom().getBlockZ() == event.getTo().getBlockZ()) {
-            return; // The player did not move, so return early
-        }
-
-        Player player = event.getPlayer();
 
         boolean particlesEnabled = playerParticlesEnabled.get(player.getUniqueId());
         boolean soundEnabled = playerSoundsEnabled.get(player.getUniqueId());
+
+        Block nearestOreBlock = null; // Store the nearest ore block found
+        double nearestOreDistance = Double.MAX_VALUE; // Initialize to a large value for comparison
 
         for (int x = -distance; x <= distance; x++) {
             for (int y = -distance; y <= distance; y++) {
@@ -153,18 +163,45 @@ public class OreDetectorPlugin extends JavaPlugin implements Listener {
                         List<Material> disabledOresForPlayer = playerDisabledOres.get(player.getUniqueId());
                         if (disabledOresForPlayer == null || !disabledOresForPlayer.contains(block.getType())) {
                             double blockDistance = player.getLocation().distance(block.getLocation());
-                            float scaledVolume = (float) (maxVolume * (1 - (blockDistance / (2 * distance))));
+                            if (blockDistance < nearestOreDistance) { // Check if this ore is closer than the previously found nearest ore
+                                nearestOreDistance = blockDistance;
+                                nearestOreBlock = block;
+                            }
 
+                            float scaledVolume = (float) (maxVolume * (1 - (blockDistance / (2 * distance))));
                             if (particlesEnabled) {
+                                Particle particleEffect;
+                                try {
+                                    particleEffect = Particle.valueOf(getConfig().getString("ore-detection.particles." + block.getType().name()).toUpperCase());
+                                } catch (IllegalArgumentException e) {
+                                    getLogger().warning("Invalid particle specified for " + block.getType().name() + " in config.yml. Falling back to END_ROD.");
+                                    particleEffect = Particle.END_ROD;
+                                }
                                 player.spawnParticle(particleEffect, block.getLocation().add(0.5, 0.5, 0.5), particleCount, 0.5, 0.5, 0.5, 0);
                             }
                             if (soundEnabled) {
-                                player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, scaledVolume, 1f);
+                                Sound oreSound;
+                                try {
+                                    oreSound = Sound.valueOf(getConfig().getString("ore-detection.sounds." + block.getType().name()).toUpperCase());
+                                } catch (IllegalArgumentException e) {
+                                    getLogger().warning("Invalid sound specified for " + block.getType().name() + " in config.yml. Falling back to ENTITY_EXPERIENCE_ORB_PICKUP.");
+                                    oreSound = Sound.ENTITY_EXPERIENCE_ORB_PICKUP;
+                                }
+                                player.playSound(block.getLocation(), oreSound, scaledVolume, 1f); // Playing sound from ore's location
                             }
                         }
                     }
                 }
             }
+        }
+
+        // Display the message about the nearest ore
+        if (nearestOreBlock != null) {
+            int gridDistance = (int) Math.ceil(nearestOreDistance); // Convert the distance to an integer for display
+            String message = getConfig().getString("message", "%ore_name% is about %grid_range% blocks away")
+                    .replace("%ore_name%", nearestOreBlock.getType().name().replace("_", " ").toLowerCase())
+                    .replace("%grid_range%", String.valueOf(gridDistance));
+            player.spigot().sendMessage(ChatMessageType.ACTION_BAR, TextComponent.fromLegacyText(message));
         }
     }
 

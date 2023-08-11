@@ -9,10 +9,10 @@ commands:
     permission: oredetector.reloadconfig
     default: op
 
-    permissions:
-      oredetector.reloadconfig:
-        description: Allows the player to reload the OreDetectorPlugin configuration.
-        default: op
-        oredetector.use:
-          description: Allows the player to use the Ore Detector
-          default: true
+  permissions:
+    oredetector.reloadconfig:
+      description: Allows the player to reload the OreDetectorPlugin configuration.
+      default: op
+      oredetector.use:
+        description: Allows the player to use the Ore Detector
+        default: true
