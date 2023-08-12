@@ -17,6 +17,8 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.inventory.*;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.Color;
 
 import java.util.*;
 
@@ -36,6 +38,8 @@ public class OreDetectorPlugin extends JavaPlugin implements Listener {
         saveDefaultConfig();
         initializeOreList();
         registerOreDetectorCompassRecipe();
+        saveDefaultConfig();  // Save default config if it doesn't exist
+        reloadConfig();       // Load the config into memory
 
         for (Player player : Bukkit.getOnlinePlayers()) {
             if (!playerDisabledOres.containsKey(player.getUniqueId())) {
@@ -191,12 +195,8 @@ public class OreDetectorPlugin extends JavaPlugin implements Listener {
                                     particleEffect = Particle.END_ROD;
                                 }
 
-                                if(particleEffect == Particle.REDSTONE) {
-                                    // Get color from the config
-                                    Color color = getColorFromConfig(block.getType());
-                                    // Use dustOptions for colored dust
-                                    Particle.DustOptions dustOptions = new Particle.DustOptions(color, 1);
-                                    player.spawnParticle(particleEffect, block.getLocation().add(0.5, 0.5, 0.5), particleCount, 0.5, 0.5, 0.5, 0, dustOptions);
+                                if (particleEffect == Particle.REDSTONE) {
+                                    spawnColoredDust(player, block);
                                 } else {
                                     player.spawnParticle(particleEffect, block.getLocation().add(0.5, 0.5, 0.5), particleCount, 0.5, 0.5, 0.5, 0);
                                 }
@@ -228,26 +228,41 @@ public class OreDetectorPlugin extends JavaPlugin implements Listener {
         }
     }
 
+    public void spawnColoredDust(Player player, Block block) {
+        // Get block type as a string
+        String blockType = block.getType().toString();
 
-    private Color getColorFromConfig(Material material) {
-        String rgbString = getConfig().getString("ore-detection.particles.colors." + material.name());
-        if (rgbString != null && !rgbString.isEmpty()) {
-            String[] rgbValues = rgbString.split(",");
-            if (rgbValues.length == 3) {
-                try {
-                    int r = Integer.parseInt(rgbValues[0].trim());
-                    int g = Integer.parseInt(rgbValues[1].trim());
-                    int b = Integer.parseInt(rgbValues[2].trim());
-                    return Color.fromRGB(r, g, b);
-                } catch (NumberFormatException e) {
-                    getLogger().warning("Invalid RGB values specified for " + material.name() + " in config.yml.");
-                }
-            }
-        }
-        return Color.RED;  // Default to red if any issue
+        // Pass the block type to getColorFromConfig
+        Particle.DustOptions dustOptions = new Particle.DustOptions(getColorFromConfig(blockType), 1);
+
+        player.spawnParticle(Particle.REDSTONE, block.getLocation().add(0.5, 0.5, 0.5), 15, 0.5, 0.5, 0.5, 0, dustOptions);
     }
 
 
+    private Color getColorFromConfig(String oreType) {
+        ConfigurationSection colorSection = getConfig().getConfigurationSection("ore-detection.ore-detection.color." + oreType);
+
+        if (colorSection == null) {
+            getLogger().warning("Color configuration for " + oreType + " is missing. Defaulting to RED.");
+            return Color.RED;
+        }
+
+        try {
+            int r = colorSection.getInt("r");
+            int g = colorSection.getInt("g");
+            int b = colorSection.getInt("b");
+
+            // Ensure color values are between 0 and 255
+            r = Math.max(0, Math.min(255, r));
+            g = Math.max(0, Math.min(255, g));
+            b = Math.max(0, Math.min(255, b));
+
+            return Color.fromRGB(r, g, b);
+        } catch (Exception e) {
+            getLogger().warning("RGB values in the config for " + oreType + " are not valid. Defaulting to RED.");
+            return Color.RED;
+        }
+    }
 
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
