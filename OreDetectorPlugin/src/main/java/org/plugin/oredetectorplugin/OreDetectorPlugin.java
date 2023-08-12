@@ -49,8 +49,21 @@ public class OreDetectorPlugin extends JavaPlugin implements Listener {
             }
         }
 
+        this.getCommand("oreconfigreload").setExecutor(new CommandExecutor() {
+            @Override
+            public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
+                if (sender.hasPermission("oredetectorplugin.reload")) {
+                    reloadConfig();
+                    sender.sendMessage(ChatColor.GREEN + "OreDetectorPlugin config has been reloaded!");
+                    return true;
+                } else {
+                    sender.sendMessage(ChatColor.RED + "You do not have permission to use this command.");
+                    return true;
+                }
+            }
+        });
+
         this.getServer().getPluginManager().registerEvents(this, this);
-        this.getCommand("reloadconfig").setExecutor(new ReloadConfigCommand());
 
         // Setup repeating task for sound effect
         this.getServer().getScheduler().scheduleSyncRepeatingTask(this, new Runnable() {
@@ -62,7 +75,6 @@ public class OreDetectorPlugin extends JavaPlugin implements Listener {
             }
         }, 0L, 20L); // Check every 1 second. Change 20L to 40L for 2 seconds.
     }
-
 
     private void registerOreDetectorCompassRecipe() {
         ItemStack oreDetectorCompass = new ItemStack(Material.COMPASS);
@@ -169,6 +181,7 @@ public class OreDetectorPlugin extends JavaPlugin implements Listener {
                             }
 
                             float scaledVolume = (float) (maxVolume * (1 - (blockDistance / (2 * distance))));
+
                             if (particlesEnabled) {
                                 Particle particleEffect;
                                 try {
@@ -177,8 +190,18 @@ public class OreDetectorPlugin extends JavaPlugin implements Listener {
                                     getLogger().warning("Invalid particle specified for " + block.getType().name() + " in config.yml. Falling back to END_ROD.");
                                     particleEffect = Particle.END_ROD;
                                 }
-                                player.spawnParticle(particleEffect, block.getLocation().add(0.5, 0.5, 0.5), particleCount, 0.5, 0.5, 0.5, 0);
+
+                                if(particleEffect == Particle.REDSTONE) {
+                                    // Get color from the config
+                                    Color color = getColorFromConfig(block.getType());
+                                    // Use dustOptions for colored dust
+                                    Particle.DustOptions dustOptions = new Particle.DustOptions(color, 1);
+                                    player.spawnParticle(particleEffect, block.getLocation().add(0.5, 0.5, 0.5), particleCount, 0.5, 0.5, 0.5, 0, dustOptions);
+                                } else {
+                                    player.spawnParticle(particleEffect, block.getLocation().add(0.5, 0.5, 0.5), particleCount, 0.5, 0.5, 0.5, 0);
+                                }
                             }
+
                             if (soundEnabled) {
                                 Sound oreSound;
                                 try {
@@ -204,6 +227,27 @@ public class OreDetectorPlugin extends JavaPlugin implements Listener {
             player.spigot().sendMessage(ChatMessageType.ACTION_BAR, TextComponent.fromLegacyText(message));
         }
     }
+
+
+    private Color getColorFromConfig(Material material) {
+        String rgbString = getConfig().getString("ore-detection.particles.colors." + material.name());
+        if (rgbString != null && !rgbString.isEmpty()) {
+            String[] rgbValues = rgbString.split(",");
+            if (rgbValues.length == 3) {
+                try {
+                    int r = Integer.parseInt(rgbValues[0].trim());
+                    int g = Integer.parseInt(rgbValues[1].trim());
+                    int b = Integer.parseInt(rgbValues[2].trim());
+                    return Color.fromRGB(r, g, b);
+                } catch (NumberFormatException e) {
+                    getLogger().warning("Invalid RGB values specified for " + material.name() + " in config.yml.");
+                }
+            }
+        }
+        return Color.RED;  // Default to red if any issue
+    }
+
+
 
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
@@ -302,20 +346,6 @@ public class OreDetectorPlugin extends JavaPlugin implements Listener {
         }
     }
 
-
-    public class ReloadConfigCommand implements CommandExecutor {
-        @Override
-        public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-            if (!(sender instanceof Player)) {
-                sender.sendMessage("Only players can use this command.");
-                return true;
-            }
-
-            reloadConfig();
-            sender.sendMessage("Configuration reloaded!");
-            return true;
-        }
-    }
 
     private void openOreToggleGUI(Player player) {
         int size = 54;  // Large chest size

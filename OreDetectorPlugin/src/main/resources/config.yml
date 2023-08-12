@@ -45,4 +45,10 @@ ore-detection:
     DEEPSLATE_LAPIS_ORE: WATER_DROP
     DEEPSLATE_DIAMOND_ORE: ENCHANTMENT_TABLE
 
+    colors:  # Only if you want to use REDSTONE with color
+      REDSTONE_ORE:
+        red: 255
+        green: 0
+        blue: 0
+
   message: "%ore_name% is about %grid_range% blocks away"

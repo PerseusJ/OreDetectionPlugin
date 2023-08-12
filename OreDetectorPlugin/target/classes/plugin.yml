@@ -1,18 +1,16 @@
 name: OreDetectorPlugin
 main: org.plugin.oredetectorplugin.OreDetectorPlugin
-version: 1.4
-author: YourName
+version: 1.5
+author: Gblack
+api-version: 1.16
 commands:
-  reloadconfig:
-    description: Reloads the OreDetectorPlugin configuration.
-    usage: /reloadconfig
-    permission: oredetector.reloadconfig
-    default: op
+  oreconfigreload:
+    description: Reload the OreDetectorPlugin config
+    usage: /<command>
+    aliases: [oreconfigr, oreload]
+    permission: oredetectorplugin.reload
 
-  permissions:
-    oredetector.reloadconfig:
-      description: Allows the player to reload the OreDetectorPlugin configuration.
-      default: op
-      oredetector.use:
-        description: Allows the player to use the Ore Detector
-        default: true
+permissions:
+     oredetector.use:
+       description: Allows the player to use the Ore Detector
+       default: true
