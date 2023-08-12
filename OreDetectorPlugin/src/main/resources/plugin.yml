@@ -1,6 +1,6 @@
 name: OreDetectorPlugin
 main: org.plugin.oredetectorplugin.OreDetectorPlugin
-version: 1.7
+version: 1.6
 author: Gblack
 api-version: 1.16
 commands:
