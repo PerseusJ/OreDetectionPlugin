@@ -4,6 +4,7 @@ import net.md_5.bungee.api.ChatMessageType;
 import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.*;
 import org.bukkit.block.Block;
+import org.bukkit.block.data.BlockData;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -179,7 +180,7 @@ public class OreDetectorPlugin extends JavaPlugin implements Listener {
                         List<Material> disabledOresForPlayer = playerDisabledOres.get(player.getUniqueId());
                         if (disabledOresForPlayer == null || !disabledOresForPlayer.contains(block.getType())) {
                             double blockDistance = player.getLocation().distance(block.getLocation());
-                            if (blockDistance < nearestOreDistance) { // Check if this ore is closer than the previously found nearest ore
+                            if (blockDistance < nearestOreDistance) { // Check if this ore is closer than the previously found the nearest ore
                                 nearestOreDistance = blockDistance;
                                 nearestOreBlock = block;
                             }
@@ -197,6 +198,9 @@ public class OreDetectorPlugin extends JavaPlugin implements Listener {
 
                                 if (particleEffect == Particle.REDSTONE) {
                                     spawnColoredDust(player, block);
+                                } else if (particleEffect == Particle.FALLING_DUST) {
+                                    BlockData blockData = block.getBlockData();
+                                    player.spawnParticle(particleEffect, block.getLocation().add(0.5, 0.5, 0.5), particleCount, 0.5, 0.5, 0.5, 0, blockData);
                                 } else {
                                     player.spawnParticle(particleEffect, block.getLocation().add(0.5, 0.5, 0.5), particleCount, 0.5, 0.5, 0.5, 0);
                                 }

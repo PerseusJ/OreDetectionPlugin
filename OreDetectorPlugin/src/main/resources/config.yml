@@ -46,7 +46,7 @@ ore-detection:
     DEEPSLATE_DIAMOND_ORE: ENCHANTMENT_TABLE
 
   ore-detection:
-    color:  # Only if you want to use REDSTONE with color
+    color:
       GOLD_ORE:
         r: 255
         g: 255
