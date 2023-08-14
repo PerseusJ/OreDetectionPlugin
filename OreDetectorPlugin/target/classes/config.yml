@@ -1,7 +1,6 @@
-ore-detection:
+ore-detection-settings:
   distance: 5
   particle-count: 5
-  particle: END_ROD
   volume: 0.1
   sounds:
     COAL_ORE: BLOCK_STONE_HIT
@@ -23,7 +22,6 @@ ore-detection:
     DEEPSLATE_EMERALD_ORE: BLOCK_NOTE_BLOCK_FLUTE
     DEEPSLATE_LAPIS_ORE: BLOCK_NOTE_BLOCK_BASS
     DEEPSLATE_DIAMOND_ORE: BLOCK_NOTE_BLOCK_CHIME
-
   particles:
     COAL_ORE: SMOKE_NORMAL
     IRON_ORE: FALLING_DUST
@@ -44,17 +42,18 @@ ore-detection:
     DEEPSLATE_EMERALD_ORE: VILLAGER_HAPPY
     DEEPSLATE_LAPIS_ORE: WATER_DROP
     DEEPSLATE_DIAMOND_ORE: ENCHANTMENT_TABLE
-
-  ore-detection:
-    color:
-      GOLD_ORE:
-        r: 255
-        g: 255
-        b: 0
+  color:
+    GOLD_ORE:
+      r: 255
+      g: 255
+      b: 0
 
 ore-names:
   DIAMOND_ORE: 'Sparkling Diamond'
   IRON_ORE: 'Shiny Iron'
   # ... and so on for other ores
 
-  message: "%ore_name% is about %grid_range% blocks away"
+message: "%ore_name% is %grid_range% blocks away"
+
+compass-gui-title: "Toggle Ore Detection"
+compass-item-name: "Ore Detector"

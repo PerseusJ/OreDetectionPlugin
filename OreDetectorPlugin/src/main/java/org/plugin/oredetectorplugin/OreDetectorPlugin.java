@@ -8,10 +8,12 @@ import org.bukkit.block.data.BlockData;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
+import org.bukkit.event.inventory.CraftItemEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
@@ -84,7 +86,11 @@ public class OreDetectorPlugin extends JavaPlugin implements Listener {
     private void registerOreDetectorCompassRecipe() {
         ItemStack oreDetectorCompass = new ItemStack(Material.COMPASS);
         ItemMeta meta = oreDetectorCompass.getItemMeta();
-        meta.setDisplayName("Ore Detector");
+
+        // Fetch the compass item name from config.yml
+        String compassItemName = getConfig().getString("compass-item-name", "Ore Detector");
+
+        meta.setDisplayName(compassItemName);
         oreDetectorCompass.setItemMeta(meta);
 
         ShapedRecipe oreDetectorRecipe = new ShapedRecipe(new NamespacedKey(this, "ore_detector_compass"), oreDetectorCompass);
@@ -100,9 +106,12 @@ public class OreDetectorPlugin extends JavaPlugin implements Listener {
     }
 
     private boolean isOreDetectorCompass(ItemStack item) {
+        // Fetch the compass item name from config.yml
+        String compassItemName = getConfig().getString("compass-item-name", "Ore Detector");
+
         if (item != null && item.getType() == Material.COMPASS) {
             ItemMeta meta = item.getItemMeta();
-            if (meta != null && "Ore Detector".equals(meta.getDisplayName())) {
+            if (meta != null && compassItemName.equals(meta.getDisplayName())) {
                 return true;
             }
         }
@@ -161,10 +170,27 @@ public class OreDetectorPlugin extends JavaPlugin implements Listener {
         }
     }
 
+    @EventHandler
+    public void onCraftItem(CraftItemEvent event) {
+        String compassItemName = getConfig().getString("compass-item-name", "Ore Detector");
+        ItemStack resultItem = event.getRecipe().getResult();
+        if (resultItem.getType() == Material.COMPASS && resultItem.hasItemMeta() && resultItem.getItemMeta().hasDisplayName() && resultItem.getItemMeta().getDisplayName().equals(compassItemName)) {
+            HumanEntity human = event.getWhoClicked();
+            if (human instanceof Player) {
+                Player player = (Player) human;
+                if (!player.hasPermission("ore-detector.craft")) {
+                    player.sendMessage(ChatColor.RED + "You do not have permission to craft the Ore Detector!");
+                    event.setCancelled(true);
+                }
+            }
+        }
+    }
+
+
     public void checkForOresNearby(Player player) {
-        int distance = getConfig().getInt("ore-detection.distance");
-        int particleCount = getConfig().getInt("ore-detection.particle-count");
-        float maxVolume = (float) getConfig().getDouble("ore-detection.volume");
+        int distance = getConfig().getInt("ore-detection-settings.distance");
+        int particleCount = getConfig().getInt("ore-detection-settings.particle-count");
+        float maxVolume = (float) getConfig().getDouble("ore-detection-settings.volume");
 
         boolean particlesEnabled = playerParticlesEnabled.get(player.getUniqueId());
         boolean soundEnabled = playerSoundsEnabled.get(player.getUniqueId());
@@ -190,7 +216,7 @@ public class OreDetectorPlugin extends JavaPlugin implements Listener {
                             if (particlesEnabled) {
                                 Particle particleEffect;
                                 try {
-                                    particleEffect = Particle.valueOf(getConfig().getString("ore-detection.particles." + block.getType().name()).toUpperCase());
+                                    particleEffect = Particle.valueOf(getConfig().getString("ore-detection-settings.particles." + block.getType().name()).toUpperCase());
                                 } catch (IllegalArgumentException e) {
                                     getLogger().warning("Invalid particle specified for " + block.getType().name() + " in config.yml. Falling back to END_ROD.");
                                     particleEffect = Particle.END_ROD;
@@ -209,7 +235,7 @@ public class OreDetectorPlugin extends JavaPlugin implements Listener {
                             if (soundEnabled) {
                                 Sound oreSound;
                                 try {
-                                    oreSound = Sound.valueOf(getConfig().getString("ore-detection.sounds." + block.getType().name()).toUpperCase());
+                                    oreSound = Sound.valueOf(getConfig().getString("ore-detection-settings.sounds." + block.getType().name()).toUpperCase());
                                 } catch (IllegalArgumentException e) {
                                     getLogger().warning("Invalid sound specified for " + block.getType().name() + " in config.yml. Falling back to ENTITY_EXPERIENCE_ORB_PICKUP.");
                                     oreSound = Sound.ENTITY_EXPERIENCE_ORB_PICKUP;
@@ -226,7 +252,7 @@ public class OreDetectorPlugin extends JavaPlugin implements Listener {
         if (nearestOreBlock != null) {
             int gridDistance = (int) Math.ceil(nearestOreDistance); // Convert the distance to an integer for display
             String message = getConfig().getString("message", "%ore_name% is about %grid_range% blocks away")
-                    .replace("%ore_name%", nearestOreBlock.getType().name().replace("_", " ").toLowerCase())
+                    .replace("%ore_name%", getConfig().getString("ore-names." + nearestOreBlock.getType().name(), nearestOreBlock.getType().name().replace("_", " ").toLowerCase()))
                     .replace("%grid_range%", String.valueOf(gridDistance));
             player.spigot().sendMessage(ChatMessageType.ACTION_BAR, TextComponent.fromLegacyText(message));
 
@@ -254,7 +280,8 @@ public class OreDetectorPlugin extends JavaPlugin implements Listener {
 
 
     private Color getColorFromConfig(String oreType) {
-        ConfigurationSection colorSection = getConfig().getConfigurationSection("ore-detection.ore-detection.color." + oreType);
+        // Updated path to color configuration
+        ConfigurationSection colorSection = getConfig().getConfigurationSection("ore-detection-settings.color." + oreType);
 
         if (colorSection == null) {
             getLogger().warning("Color configuration for " + oreType + " is missing. Defaulting to RED.");
@@ -301,7 +328,16 @@ public class OreDetectorPlugin extends JavaPlugin implements Listener {
         Player player = event.getPlayer();
         ItemStack itemInHand = player.getInventory().getItemInMainHand();
 
-        if (itemInHand.getType() == Material.COMPASS && itemInHand.hasItemMeta() && itemInHand.getItemMeta().hasDisplayName() && itemInHand.getItemMeta().getDisplayName().equals("Ore Detector")) {
+        String compassItemName = getConfig().getString("compass-item-name", "Ore Detector");
+
+        if (itemInHand.getType() == Material.COMPASS && itemInHand.hasItemMeta() && itemInHand.getItemMeta().hasDisplayName() && itemInHand.getItemMeta().getDisplayName().equals(compassItemName)) {
+            // Check for the use permission
+            if (!player.hasPermission("ore-detector.use")) {
+                player.sendMessage(ChatColor.RED + "You do not have permission to use the Ore Detector!");
+                event.setCancelled(true); // Cancel the event to make sure they can't use the compass
+                return;
+            }
+
             if (event.getAction() == Action.RIGHT_CLICK_AIR || event.getAction() == Action.RIGHT_CLICK_BLOCK) {
                 openOreToggleGUI(player);
                 event.setCancelled(true);
@@ -309,13 +345,12 @@ public class OreDetectorPlugin extends JavaPlugin implements Listener {
         }
     }
 
-
-
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
         if (event.getClickedInventory() == null) return;
 
-        if (event.getView().getTitle().equals("Toggle Ore Detection")) {
+        String compassGUITitle = getConfig().getString("compass-gui-title", "Toggle Ore Detection");
+        if (event.getView().getTitle().equals(compassGUITitle)) {
             event.setCancelled(true);
 
             Player player = (Player) event.getWhoClicked();
@@ -391,7 +426,8 @@ public class OreDetectorPlugin extends JavaPlugin implements Listener {
 
     private void openOreToggleGUI(Player player) {
         int size = 54;  // Large chest size
-        Inventory gui = Bukkit.createInventory(player, size, "Toggle Ore Detection");
+        String compassGUITitle = getConfig().getString("compass-gui-title", "Toggle Ore Detection");
+        Inventory gui = Bukkit.createInventory(player, size, compassGUITitle);
 
         List<Material> disabledOresForPlayer = playerDisabledOres.getOrDefault(player.getUniqueId(), new ArrayList<>());
 

@@ -1,6 +1,6 @@
 name: OreDetectorPlugin
 main: org.plugin.oredetectorplugin.OreDetectorPlugin
-version: 1.8
+version: 1.9
 author: Gblack
 api-version: 1.16
 commands:
@@ -11,6 +11,9 @@ commands:
     permission: oredetectorplugin.reload
 
 permissions:
-  oredetector.use:
-    description: Allows the player to use the Ore Detector
+  ore-detector.use:
+    description: Allows the player to use the Ore Detector compass.
+    default: true
+  ore-detector.craft:
+    description: Allows the player to craft the Ore Detector compass.
     default: true
