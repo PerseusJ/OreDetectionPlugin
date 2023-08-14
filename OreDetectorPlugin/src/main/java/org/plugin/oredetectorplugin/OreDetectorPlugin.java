@@ -229,7 +229,17 @@ public class OreDetectorPlugin extends JavaPlugin implements Listener {
                     .replace("%ore_name%", nearestOreBlock.getType().name().replace("_", " ").toLowerCase())
                     .replace("%grid_range%", String.valueOf(gridDistance));
             player.spigot().sendMessage(ChatMessageType.ACTION_BAR, TextComponent.fromLegacyText(message));
+
+            // Set the compass target to this block
+            updatePlayerCompassTarget(player, nearestOreBlock.getLocation());
+        } else {
+            // Reset compass to spawn location if no ores are nearby or all ores are disabled
+            updatePlayerCompassTarget(player, player.getWorld().getSpawnLocation());
         }
+    }
+
+    private void updatePlayerCompassTarget(Player player, Location targetLocation) {
+        player.setCompassTarget(targetLocation);
     }
 
     public void spawnColoredDust(Player player, Block block) {
@@ -299,6 +309,8 @@ public class OreDetectorPlugin extends JavaPlugin implements Listener {
         }
     }
 
+
+
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
         if (event.getClickedInventory() == null) return;
@@ -336,6 +348,17 @@ public class OreDetectorPlugin extends JavaPlugin implements Listener {
                     soundClickCounter.put(player.getUniqueId(), currentClicks);
                 }
 
+                openOreToggleGUI(player); // Refresh the GUI
+            }
+
+            if (clickedItem.getType() == Material.LIME_DYE) {
+                playerDisabledOres.put(player.getUniqueId(), new ArrayList<>());
+                openOreToggleGUI(player); // Refresh the GUI
+            }
+
+            // Handling "Disable All" button
+            else if (clickedItem.getType() == Material.GRAY_DYE) {
+                playerDisabledOres.put(player.getUniqueId(), new ArrayList<>(ores));
                 openOreToggleGUI(player); // Refresh the GUI
             }
 
@@ -378,11 +401,12 @@ public class OreDetectorPlugin extends JavaPlugin implements Listener {
 
             ItemStack item = new ItemStack(ore);
             ItemMeta meta = item.getItemMeta();
+            String customOreName = getConfig().getString("ore-names." + ore.name(), ore.name().replace("_", " ").toLowerCase());
 
             if (disabledOresForPlayer.contains(ore)) {
-                meta.setDisplayName(ChatColor.RED + ore.name().replace("_", " ").toLowerCase());
+                meta.setDisplayName(ChatColor.RED + customOreName);
             } else {
-                meta.setDisplayName(ChatColor.GREEN + ore.name().replace("_", " ").toLowerCase());
+                meta.setDisplayName(ChatColor.GREEN + customOreName);
             }
 
             item.setItemMeta(meta);
@@ -390,6 +414,20 @@ public class OreDetectorPlugin extends JavaPlugin implements Listener {
 
             slotIndex += 2; // Increment by 2 to leave space between each ore
         }
+
+        // "Enable All" button
+        ItemStack enableAllItem = new ItemStack(Material.LIME_DYE);
+        ItemMeta enableAllMeta = enableAllItem.getItemMeta();
+        enableAllMeta.setDisplayName(ChatColor.GREEN + "Enable All Ores");
+        enableAllItem.setItemMeta(enableAllMeta);
+        gui.setItem(45, enableAllItem);
+
+        // "Disable All" button
+        ItemStack disableAllItem = new ItemStack(Material.GRAY_DYE);
+        ItemMeta disableAllMeta = disableAllItem.getItemMeta();
+        disableAllMeta.setDisplayName(ChatColor.RED + "Disable All Ores");
+        disableAllItem.setItemMeta(disableAllMeta);
+        gui.setItem(53, disableAllItem);
 
         ItemStack particleToggleItem = new ItemStack(Material.REDSTONE);
         ItemMeta particleToggleMeta = particleToggleItem.getItemMeta();

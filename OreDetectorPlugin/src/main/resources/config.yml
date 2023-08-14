@@ -52,4 +52,9 @@ ore-detection:
         g: 255
         b: 0
 
+ore-names:
+  DIAMOND_ORE: 'Sparkling Diamond'
+  IRON_ORE: 'Shiny Iron'
+  # ... and so on for other ores
+
   message: "%ore_name% is about %grid_range% blocks away"
