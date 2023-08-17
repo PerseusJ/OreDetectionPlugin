@@ -95,12 +95,13 @@ public class OreDetectorPlugin extends JavaPlugin implements Listener {
 
         ShapedRecipe oreDetectorRecipe = new ShapedRecipe(new NamespacedKey(this, "ore_detector_compass"), oreDetectorCompass);
         oreDetectorRecipe.shape(
-                "D D",
-                " C ",
-                "D D"
+                "DID",
+                "ICI",
+                "DID"
         );
         oreDetectorRecipe.setIngredient('D', Material.DIAMOND);
         oreDetectorRecipe.setIngredient('C', Material.COMPASS);
+        oreDetectorRecipe.setIngredient('I', Material.IRON_INGOT);
 
         getServer().addRecipe(oreDetectorRecipe);
     }
@@ -195,18 +196,25 @@ public class OreDetectorPlugin extends JavaPlugin implements Listener {
         boolean particlesEnabled = playerParticlesEnabled.get(player.getUniqueId());
         boolean soundEnabled = playerSoundsEnabled.get(player.getUniqueId());
 
-        Block nearestOreBlock = null; // Store the nearest ore block found
-        double nearestOreDistance = Double.MAX_VALUE; // Initialize to a large value for comparison
+        Block nearestOreBlock = null;
+        double nearestOreDistance = Double.MAX_VALUE;
+
+        Map<Material, Integer> oreCounts = new HashMap<>(); // Store counts of each type of ore found
 
         for (int x = -distance; x <= distance; x++) {
             for (int y = -distance; y <= distance; y++) {
                 for (int z = -distance; z <= distance; z++) {
                     Block block = player.getLocation().add(x, y, z).getBlock();
+
                     if (ores.contains(block.getType())) {
                         List<Material> disabledOresForPlayer = playerDisabledOres.get(player.getUniqueId());
                         if (disabledOresForPlayer == null || !disabledOresForPlayer.contains(block.getType())) {
+
+                            // Count the ores
+                            oreCounts.put(block.getType(), oreCounts.getOrDefault(block.getType(), 0) + 1);
+
                             double blockDistance = player.getLocation().distance(block.getLocation());
-                            if (blockDistance < nearestOreDistance) { // Check if this ore is closer than the previously found the nearest ore
+                            if (blockDistance < nearestOreDistance) {
                                 nearestOreDistance = blockDistance;
                                 nearestOreBlock = block;
                             }
@@ -248,12 +256,13 @@ public class OreDetectorPlugin extends JavaPlugin implements Listener {
             }
         }
 
-        // Display the message about the nearest ore
         if (nearestOreBlock != null) {
-            int gridDistance = (int) Math.ceil(nearestOreDistance); // Convert the distance to an integer for display
-            String message = getConfig().getString("message", "%ore_name% is about %grid_range% blocks away")
+            int gridDistance = (int) Math.ceil(nearestOreDistance);
+            int oreCount = oreCounts.get(nearestOreBlock.getType()); // Get the count of this type of ore
+            String message = getConfig().getString("message", "Detected %ore_count% %ore_name% within %grid_range% steps!")
                     .replace("%ore_name%", getConfig().getString("ore-names." + nearestOreBlock.getType().name(), nearestOreBlock.getType().name().replace("_", " ").toLowerCase()))
-                    .replace("%grid_range%", String.valueOf(gridDistance));
+                    .replace("%grid_range%", String.valueOf(gridDistance))
+                    .replace("%ore_count%", String.valueOf(oreCount));
             player.spigot().sendMessage(ChatMessageType.ACTION_BAR, TextComponent.fromLegacyText(message));
 
             // Set the compass target to this block
@@ -353,8 +362,13 @@ public class OreDetectorPlugin extends JavaPlugin implements Listener {
         if (event.getView().getTitle().equals(compassGUITitle)) {
             event.setCancelled(true);
 
+
             Player player = (Player) event.getWhoClicked();
             ItemStack clickedItem = event.getCurrentItem();
+
+            if (clickedItem != null && clickedItem.getType() == Material.BLACK_STAINED_GLASS_PANE) {
+                return;  // If the clicked item is the dark glass, do nothing.
+            }
 
             // Handling particles
             if (event.getCurrentItem().getType() == Material.REDSTONE) {
@@ -428,6 +442,15 @@ public class OreDetectorPlugin extends JavaPlugin implements Listener {
         int size = 54;  // Large chest size
         String compassGUITitle = getConfig().getString("compass-gui-title", "Toggle Ore Detection");
         Inventory gui = Bukkit.createInventory(player, size, compassGUITitle);
+
+        ItemStack glass = new ItemStack(Material.BLACK_STAINED_GLASS_PANE);
+        ItemMeta glassMeta = glass.getItemMeta();
+        glassMeta.setDisplayName(" ");
+        glass.setItemMeta(glassMeta);
+
+        for (int i = 0; i < size; i++) {
+            gui.setItem(i, glass); // Filling the GUI with dark glasses
+        }
 
         List<Material> disabledOresForPlayer = playerDisabledOres.getOrDefault(player.getUniqueId(), new ArrayList<>());
 

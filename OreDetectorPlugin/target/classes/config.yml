@@ -53,7 +53,7 @@ ore-names:
   IRON_ORE: 'Shiny Iron'
   # ... and so on for other ores
 
-message: "%ore_name% is %grid_range% blocks away"
+message: "Detected %ore_count% %ore_name% within %grid_range% steps!"
 
 compass-gui-title: "Toggle Ore Detection"
 compass-item-name: "Ore Detector"
